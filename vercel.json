@@ -1,0 +1,8 @@
+
+{
+  "functions": {
+    "api/generate.ts": {
+      "regions": ["iad1"]
+    }
+  }
+}
