@@ -2,25 +2,30 @@ import { GoogleGenAI } from "@google/genai";
 
 // This is a Vercel serverless function. We use `any` for request and response types for simplicity.
 export default async function handler(req: any, res: any) {
+  // Set cache-control headers to prevent Vercel's edge network from caching API responses.
+  // This ensures every request hits the function in the specified region (lhr1).
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
   try {
-    // Vercel automatically parses the JSON body, so we can access it directly.
-    // The previous `JSON.parse(req.body)` caused the error because req.body was already an object.
-    const { userInput, enableWebSearch } = req.body;
+    const { userInput, enableWebSearch, apiKey } = req.body;
 
     if (!userInput) {
         return res.status(400).json({ error: 'User input is required.' });
     }
     
-    // 'process.env.API_KEY' is now accessed securely on the server-side.
-    if (!process.env.API_KEY) {
-      throw new Error("API_KEY environment variable not set.");
+    if (!apiKey) {
+      return res.status(400).json({ error: "API key is required." });
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const ai = new GoogleGenAI({ apiKey });
 
     const UNIFIED_SYSTEM_PROMPT = `You are a world-class AI project planner and senior engineer. Your task is to transform a user's idea into a comprehensive, step-by-step project plan.
 
@@ -95,8 +100,6 @@ Now, analyze the following user idea and generate the project plan.
     
     if (text.startsWith('---')) text = text.substring(3).trim();
     if (text.endsWith('---')) text = text.slice(0, -3).trim();
-    if (text.startsWith('---')) text = text.substring(3).trim();
-    if (text.endsWith('---')) text = text.slice(0, -3).trim();
     
     const rawSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
     const sources = rawSources
@@ -106,9 +109,13 @@ Now, analyze the following user idea and generate the project plan.
 
     return res.status(200).json({ text, sources });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in /api/generate:", error);
-    const errorMessage = error instanceof Error ? error.message : "An internal server error occurred.";
+    // Specifically check for API key validation errors from the Google AI SDK
+    if (error.message && error.message.includes('API key not valid')) {
+      return res.status(401).json({ error: 'API key not valid. Please check your key.' });
+    }
+    const errorMessage = error.message || "An internal server error occurred.";
     return res.status(500).json({ error: errorMessage });
   }
 }

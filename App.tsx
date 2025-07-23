@@ -3,6 +3,7 @@ import Header from './components/Header';
 import PromptInput from './components/PromptInput';
 import PromptOutput from './components/PromptOutput';
 import SuggestionChips from './components/SuggestionChips';
+import ApiKeyModal from './components/ApiKeyModal';
 import { generateProjectPlan, Source } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -11,10 +12,24 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem('gemini_api_key');
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+    }
+  }, []);
   
   const WEB_SEARCH_KEYWORDS = ['clone', 'remake', 'recreate', 'copy', 'build a site like', 'build an app like'];
 
   const handleGenerate = useCallback(async (prompt: string) => {
+    if (!apiKey) {
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+    
     if (isLoading || !prompt.trim()) {
       if (!prompt.trim()) setError("Please enter a prompt.");
       return;
@@ -28,24 +43,50 @@ const App: React.FC = () => {
     const isWebSearchActive = WEB_SEARCH_KEYWORDS.some(keyword => prompt.toLowerCase().includes(keyword));
 
     try {
-      const result = await generateProjectPlan(prompt, isWebSearchActive);
+      const result = await generateProjectPlan(prompt, isWebSearchActive, apiKey);
       setGeneratedPlan(result.text);
       setSources(result.sources);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-      setError(`Failed to generate plan. ${errorMessage}`);
+       if (errorMessage.includes('API key not valid')) {
+        setError('Your API Key is invalid. Please enter a valid one.');
+        setApiKey('');
+        localStorage.removeItem('gemini_api_key');
+        setIsApiKeyModalOpen(true);
+      } else {
+        setError(`Failed to generate plan. ${errorMessage}`);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, apiKey]);
 
   const onSelectSuggestion = (prompt: string) => {
     setUserInput(prompt);
     handleGenerate(prompt);
   };
 
+  const handleSaveApiKey = (newKey: string) => {
+    if (newKey) {
+      setApiKey(newKey);
+      localStorage.setItem('gemini_api_key', newKey);
+      setIsApiKeyModalOpen(false);
+      // If there was user input before the modal, trigger generation now
+      if(userInput.trim()){
+        handleGenerate(userInput);
+      }
+    }
+  };
+
+
   return (
     <div className="relative min-h-screen w-full bg-[#0B1028] text-slate-200 font-sans overflow-x-hidden">
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={handleSaveApiKey}
+      />
+      
       {/* Background Gradients */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
         <div className="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-purple-600/40 rounded-full filter blur-3xl opacity-50 animate-pulse"></div>

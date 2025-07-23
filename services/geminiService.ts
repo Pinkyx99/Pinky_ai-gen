@@ -5,7 +5,8 @@ export interface Source {
 
 export const generateProjectPlan = async (
   userInput: string,
-  enableWebSearch: boolean
+  enableWebSearch: boolean,
+  apiKey: string
 ): Promise<{ text: string; sources: Source[] }> => {
   try {
     const response = await fetch('/api/generate', {
@@ -13,7 +14,7 @@ export const generateProjectPlan = async (
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userInput, enableWebSearch }),
+        body: JSON.stringify({ userInput, enableWebSearch, apiKey }),
     });
 
     if (!response.ok) {
