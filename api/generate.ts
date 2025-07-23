@@ -8,7 +8,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { userInput, enableWebSearch } = JSON.parse(req.body);
+    // Vercel automatically parses the JSON body, so we can access it directly.
+    // The previous `JSON.parse(req.body)` caused the error because req.body was already an object.
+    const { userInput, enableWebSearch } = req.body;
 
     if (!userInput) {
         return res.status(400).json({ error: 'User input is required.' });
