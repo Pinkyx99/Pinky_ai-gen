@@ -1,0 +1,5 @@
+{
+  "name": "AI App Generator",
+  "description": "Generate functional, data-driven apps instantly by simply providing a prompt detailing your desired features.",
+  "requestFramePermissions": []
+}
